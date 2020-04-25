@@ -44,9 +44,6 @@ type conf struct {
 
 func pack() {
 
-	fmt.Println("hey")
-	fmt.Println(Apps + Output)
-
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -56,7 +53,6 @@ func pack() {
 	// Get list of images to pull
 	var c conf
 	c.getConf()
-	fmt.Println(c)
 
 	// Make temporary directory
 	e2 := os.Mkdir("./cluster", 0755)
@@ -66,31 +62,44 @@ func pack() {
 	defer os.RemoveAll("./cluster")
 
 	// Move application folder to tmp
-	e4 := copier.Copy("./apps", "./cluster/apps")
+	e4 := copier.Copy(Apps, "./cluster/apps")
 	check(e4)
-
 	e5 := os.Mkdir("./cluster/images", 0755)
 	check(e5)
 
 	// Pull Images
-	out, err := cli.ImagePull(ctx, "alpine", types.ImagePullOptions{})
+	for _, value := range c.Images {
+		fmt.Println(value)
+		out, err := cli.ImagePull(ctx, value, types.ImagePullOptions{})
 
-	if err != nil {
-		panic(err)
+		if err != nil {
+			panic(err)
+		}
+
+		io.Copy(os.Stdout, out)
+
+		arrayOfImages := []string{value}
+		fmt.Println(arrayOfImages)
+		// Save to Tarballs
+		outClose, err := cli.ImageSave(ctx, arrayOfImages)
+		check(err)
+		b, e := ioutil.ReadAll(outClose)
+		check(e)
+
+		// Create prefix if necessary
+		res1 := strings.SplitN(value, "/", -1)
+
+		e6 := os.Mkdir("./cluster/images/"+res1[0], 0755)
+		check(e6)
+
+		filename := "./cluster/images/" + value + ".tar"
+		fmt.Println(filename)
+		// Write Images to tar
+		ioutil.WriteFile(filename, b, 0755)
 	}
 
-	io.Copy(os.Stdout, out)
-
-	// Save to Tarballs
-	outClose, err := cli.ImageSave(ctx, c.Images)
-	check(err)
-	b, e := ioutil.ReadAll(outClose)
-	check(e)
-	// Write Images to tar
-	ioutil.WriteFile("./cluster/images/alpine.tar", b, 0755)
-
 	// Create Tarball
-	f, e3 := os.Create("cluster.tar")
+	f, e3 := os.Create(Output)
 	check(e3)
 	w := bufio.NewWriter(f)
 	Tar("./cluster", w)
@@ -99,7 +108,7 @@ func pack() {
 
 func (c *conf) getConf() *conf {
 
-	yamlFile, err := ioutil.ReadFile("./apps/images.yaml")
+	yamlFile, err := ioutil.ReadFile(Apps + "/images.yaml")
 	if err != nil {
 		log.Printf("yamlFile.Get err   #%v ", err)
 	}
@@ -159,7 +168,7 @@ func Tar(src string, writers ...io.Writer) error {
 
 	// walk path
 	return filepath.Walk(src, func(file string, fi os.FileInfo, err error) error {
-
+		fmt.Println(fi.Name())
 		// return on any error
 		if err != nil {
 			return err
