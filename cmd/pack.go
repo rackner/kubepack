@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,10 +32,15 @@ import (
 	"github.com/docker/docker/client"
 	copier "github.com/otiai10/copy"
 	"github.com/spf13/cobra"
+	yaml "gopkg.in/yaml.v2"
 )
 
 var Apps string
 var Output string
+
+type conf struct {
+	Images []string `yaml:"images"`
+}
 
 func pack() {
 
@@ -47,20 +53,10 @@ func pack() {
 		panic(err)
 	}
 
-	/*
-		authConfig := types.AuthConfig{
-			Username: "username",
-			Password: "password",
-		}
-		encodedJSON, err := json.Marshal(authConfig)
-		if err != nil {
-			panic(err)
-		}
-		authStr := base64.URLEncoding.EncodeToString(encodedJSON)
-	*/
-
 	// Get list of images to pull
-	// TODO
+	var c conf
+	c.getConf()
+	fmt.Println(c)
 
 	// Make temporary directory
 	e2 := os.Mkdir("./cluster", 0755)
@@ -86,8 +82,7 @@ func pack() {
 	io.Copy(os.Stdout, out)
 
 	// Save to Tarballs
-	imageNames := []string{"alpine"}
-	outClose, err := cli.ImageSave(ctx, imageNames)
+	outClose, err := cli.ImageSave(ctx, c.Images)
 	check(err)
 	b, e := ioutil.ReadAll(outClose)
 	check(e)
@@ -100,6 +95,20 @@ func pack() {
 	w := bufio.NewWriter(f)
 	Tar("./cluster", w)
 
+}
+
+func (c *conf) getConf() *conf {
+
+	yamlFile, err := ioutil.ReadFile("./apps/images.yaml")
+	if err != nil {
+		log.Printf("yamlFile.Get err   #%v ", err)
+	}
+	err = yaml.Unmarshal(yamlFile, c)
+	if err != nil {
+		log.Fatalf("Unmarshal: %v", err)
+	}
+
+	return c
 }
 
 func check(e error) {
