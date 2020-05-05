@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -38,8 +39,8 @@ var Output string
 type conf struct {
 	Images      []string `yaml:"images"`
 	OS          string   `yaml:"os"`
-	OSVersion   string   `yaml:"osversion"`
-	KubeVersion string   `yaml:"kubeversion"`
+	OSVersion   string   `yaml:"osVersion"`
+	KubeVersion string   `yaml:"kubeVersion"`
 }
 
 func pack() {
@@ -112,29 +113,52 @@ func buildAndSaveBase(OS string, OSVersion string, KubeVersion string) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Print(cli.ClientVersion())
 	args := map[string]*string{
 		"KUBE_VERSION": &KubeVersion,
 		"OS_VERSION":   &OSVersion,
 	}
-	opt := types.ImageBuildOptions{
-		Dockerfile: "./starter-images/" + OS + "/Dockerfile",
-		BuildArgs:  args,
+	options := types.ImageBuildOptions{
+		SuppressOutput: false,
+		Remove:         true,
+		ForceRemove:    true,
+		PullParent:     true,
+		Dockerfile:     "starter-images/" + OS + "/Dockerfile",
+		BuildArgs:      args,
+		NoCache:        true,
 	}
 	tar := new(archivex.TarFile)
-	tar.Create("/cluster/base.tar")
+	tar.Create("./cluster/base.tar")
+	tar.AddAll("./starter-images", true)
 	tar.Close()
-	dockerBuildContext, err := os.Open("/cluster/base.tar")
+	dockerBuildContext, err := os.Open("./cluster/base.tar")
 	defer dockerBuildContext.Close()
-	_, err = cli.ImageBuild(context.Background(), dockerBuildContext, opt)
-	if err == nil {
-		fmt.Printf("Error, %v", err)
+	buildResponse, err := cli.ImageBuild(context.Background(), dockerBuildContext, options)
+	if err != nil {
+		fmt.Printf("%s", err.Error())
 	}
+	defer buildResponse.Body.Close()
+	writeToLog(buildResponse.Body)
+}
+
+//writes from the build response to the log
+func writeToLog(reader io.ReadCloser) error {
+	defer reader.Close()
+	rd := bufio.NewReader(reader)
+	for {
+		n, _, err := rd.ReadLine()
+		if err != nil && err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
+		log.Println(string(n))
+	}
+	return nil
 }
 
 func (c *conf) getConf() *conf {
 
-	yamlFile, err := ioutil.ReadFile(Apps + "/images.yaml")
+	yamlFile, err := ioutil.ReadFile(Apps + "/cluster.yaml")
 	if err != nil {
 		log.Printf("yamlFile.Get err   #%v ", err)
 	}

@@ -1,3 +1,5 @@
+os: ubuntu
+osVersion: 18.04
+kubeVersion: 15.7
 images:
   - alpine
-  - node/alpine
