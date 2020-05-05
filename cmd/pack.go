@@ -134,6 +134,7 @@ func buildAndSaveBase(OS string, OSVersion string, KubeVersion string) {
 	tar.Close()
 	dockerBuildContext, err := os.Open("./cluster/basetemp.tar")
 	defer dockerBuildContext.Close()
+	defer os.RemoveAll("./cluster/basetemp.tar")
 	buildResponse, err := cli.ImageBuild(context.Background(), dockerBuildContext, options)
 	if err != nil {
 		fmt.Printf("%s", err.Error())
