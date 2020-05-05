@@ -117,6 +117,7 @@ func buildAndSaveBase(OS string, OSVersion string, KubeVersion string) {
 		"KUBE_VERSION": &KubeVersion,
 		"OS_VERSION":   &OSVersion,
 	}
+	arrayOfImages := []string{"kubepacked/bundle"}
 	options := types.ImageBuildOptions{
 		SuppressOutput: false,
 		Remove:         true,
@@ -125,12 +126,13 @@ func buildAndSaveBase(OS string, OSVersion string, KubeVersion string) {
 		Dockerfile:     "starter-images/" + OS + "/Dockerfile",
 		BuildArgs:      args,
 		NoCache:        true,
+		Tags:           arrayOfImages,
 	}
 	tar := new(archivex.TarFile)
-	tar.Create("./cluster/base.tar")
+	tar.Create("./cluster/basetemp.tar")
 	tar.AddAll("./starter-images", true)
 	tar.Close()
-	dockerBuildContext, err := os.Open("./cluster/base.tar")
+	dockerBuildContext, err := os.Open("./cluster/basetemp.tar")
 	defer dockerBuildContext.Close()
 	buildResponse, err := cli.ImageBuild(context.Background(), dockerBuildContext, options)
 	if err != nil {
@@ -138,6 +140,14 @@ func buildAndSaveBase(OS string, OSVersion string, KubeVersion string) {
 	}
 	defer buildResponse.Body.Close()
 	writeToLog(buildResponse.Body)
+	outClose, err := cli.ImageSave(context.Background(), arrayOfImages)
+	check(err)
+	b, e := ioutil.ReadAll(outClose)
+	check(e)
+	// Create prefix if necessary
+	filename := "./cluster/base.tar"
+	fmt.Println(filename)
+	ioutil.WriteFile(filename, b, 0755)
 }
 
 //writes from the build response to the log
