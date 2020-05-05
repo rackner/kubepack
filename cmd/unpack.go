@@ -16,10 +16,26 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
+	"context"
 
 	"github.com/spf13/cobra"
 )
+
+var ClusterTar string
+
+func unpack() {
+	ctx := context.Background()
+
+	// Install Kubeadm, Kubelet, Kubectl
+	//// TODO
+
+	// Add Container Images to Local Cache
+	//// TODO
+
+	// Either run Kubeadm init or prompt the user to do so
+	//// TODO
+
+}
 
 // unpackCmd represents the unpack command
 var unpackCmd = &cobra.Command{
@@ -32,20 +48,12 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("unpack called")
+		unpack()
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(unpackCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// unpackCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// unpackCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	packCmd.PersistentFlags().StringVar(&ClusterTar, "cluster", "", "Path to Cluster Tarball")
 }
